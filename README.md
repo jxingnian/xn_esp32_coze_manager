@@ -1,238 +1,168 @@
 <!--
  * @Author: 星年 && jixingnian@gmail.com
- * @Date: 2025-11-22 15:20:30
+ * @Date: 2025-11-29 09:50:35
  * @LastEditors: xingnian jixingnian@gmail.com
- * @LastEditTime: 2025-11-23 12:09:25
- * @FilePath: \xn_web_wifi_config\README.md
- * @Description: ESP32 网页 WiFi 配网组件使用说明
+ * @LastEditTime: 2025-11-29 19:17:19
+ * @FilePath: \xn_esp32_coze_manager\README.md
+ * @Description: 
  * 
  * Copyright (c) 2025 by ${git_name_email}, All Rights Reserved. 
 -->
 
-# ESP32 网页 WiFi 配网组件（xn_web_wifi_config）
+# xn_esp32_coze_manager
 
-## 1. 项目简介
+基于 ESP32-S3 + Coze 实时语音的语音助手示例工程。
+集成了：
 
-本仓库提供一个基于 ESP-IDF 的 **ESP32 网页 WiFi 配网组件**，集成了：
+- Web WiFi 配网（AP + Web 页面）
+- Coze 实时语音聊天（基于 `xn_coze_chat` / `esp_coze` 组件）
+- 音频采集与播放管理（`xn_audio_manager`）
+- VAD / 唤醒 / 按键触发等事件驱动
 
-- **WiFi 管理状态机**：自动重连、轮询多组已保存 AP；
-- **SoftAP + Web 配网页面**：通过浏览器扫描附近 WiFi 并输入密码连接；
-- **存储模块**：在 NVS 中保存/删除多组 WiFi；
-- **前后端分离的 Web UI**：静态页面放在 SPIFFS 分区，通过 HTTP API 与后台交互。
+> 适合作为 ESP32 语音对话设备（台灯、音箱、机器人等）的模板工程。
 
-目标是让应用层只需在 `app_main` 里初始化一次管理模块，就可以快速接入配网能力。
+## 功能特性
 
----
+- **WiFi 管理**
+  - 自动重连、多路由轮询
+  - 内置 AP：默认 SSID `XN-ESP32-AP`，密码 `12345678`
+  - Web 配网页面：连接 AP 后访问 `http://192.168.4.1` 进行配网
+- **Coze 实时语音**
+  - 通过 WebSocket 与 Coze 平台建立双向通道
+  - 上行语音流：从麦克风采集 PCM，经 `coze_chat_send_audio_data` 送入 Coze
+  - 下行语音流：Coze 返回的 PCM 由 `audio_manager` 播放
+  - 支持客户端打断模式、字幕事件、用户自定义数据等
+- **音频管理**
+  - 统一管理录音、播放、VAD 与唤醒逻辑
+  - 录音数据回调 `loopback_record_cb` 直接推送到 Coze
+  - VAD 结束 / 唤醒超时等事件会调用 Coze 的 `send_audio_complete` / `send_audio_cancel`
 
-## 2. 目录结构
+## 工程结构
 
-- **main/**
-  - `main.c`：应用入口示例（可根据自己项目修改）。
+- `main/`
+  - `main.c`：应用入口，初始化 WiFi 管理、音频管理，并与 Coze 应用对接
+  - `coze_chat_app/`
+    - `coze_chat_app.c`：封装 Coze 相关配置与生命周期（init / start / stop）
+    - `coze_chat_app.h`
+  - `audio_app/`
+    - `audio_config_app.c`：构建 `audio_mgr_config_t`，配置音频通路与事件回调
+- `components/`
+  - `xn_web_wifi_manger/`：WiFi 自动管理 + AP + Web 配网，导出 `xn_wifi_manage.h`
+  - `xn_coze_chat/`：Coze 实时语音组件，封装网络 / 编码 / 事件回调
+  - `xn_audio_manager/`：音频采集与播放通用组件
+- `sdkconfig.defaults`：默认芯片、Flash、PSRAM、分区表等配置（目标芯片 ESP32-S3）
+- `CMakeLists.txt`：ESP-IDF CMake 工程入口与组件配置
 
-- **components/xn_web_wifi_manger/**
-  - **include/**
-    - `xn_wifi_manage.h`：WiFi 管理模块对外接口与配置结构。
-    - `wifi_module.h`：底层 WiFi 封装接口（init / connect / scan）。
-    - `storage_module.h`：保存/加载 WiFi 配置的接口。
-    - `web_module.h`：Web 服务器与 HTTP API 接口。
-  - **src/**
-    - `xn_wifi_manage.c`：WiFi 管理状态机 + 定时任务调度。
-    - `wifi_module.c`：对 ESP-IDF `esp_wifi` 的封装（连接、扫描）。
-    - `web_module.c`：HTTP 服务器、SPIFFS 静态资源、JSON API。
-    - `storage_module.c`：基于 NVS 的 WiFi 配置存储实现。
-  - **wifi_spiffs/**
-    - `index.html` / `app.css` / `app.js`：Web 配网页面前端资源。
+## 硬件与软件环境
 
-- 根目录：
-  - `CMakeLists.txt`：顶层构建脚本。
-  - `partitions.csv`：包含 `wifi_spiffs` SPIFFS 分区配置。
-  - `sdkconfig.defaults`：默认配置。
+- **硬件**
+  - ESP32-S3 开发板（16MB Flash，带 PSRAM）
+  - 板载或外接麦克风 + 扬声器（由 `xn_audio_manager` 组件接管）
+- **软件**
+  - 已安装 ESP-IDF 开发环境
+  - Python 3.x
+  - Coze 平台账号，一个已开启实时语音能力的 Bot
 
----
+## 快速开始
 
-## 3. 环境要求
+- **1. 克隆工程**
 
-- 硬件：ESP32 系列开发板（2.4G WiFi）。
-- 软件：已安装配置好的 ESP-IDF。
+  ```bash
+  git clone <this_repo_url>
+  cd xn_esp32_coze_manager
+  ```
 
----
+- **2. 设置 ESP-IDF 目标芯片（仅首次）**
 
-## 4. 编译与烧录
+  ```bash
+  idf.py set-target esp32s3
+  ```
 
-在工程根目录下：
+- **3. （可选）加载默认配置并进入菜单**
 
-```bash
-idf.py set-target esp32-s3      # 如已配置可省略
-idf.py build
-idf.py flash
-idf.py monitor
-```
+  ```bash
+  idf.py menuconfig
+  ```
 
-本组件的 `CMakeLists.txt` 中包含：
+  - 根据需要调整：
+    - Flash 大小 / 模式
+    - PSRAM 使用方式
+    - Audio / Coze 相关配置
 
-```cmake
-spiffs_create_partition_image(wifi_spiffs wifi_spiffs FLASH_IN_PROJECT)
-```
+- **4. 编译工程**
 
-构建时会自动将 `components/xn_web_wifi_manger/wifi_spiffs` 下的静态文件
-打包进 `wifi_spiffs` 分区并在 `flash` 时一起烧录，无需单独生成 SPIFFS 镜像。
+  ```bash
+  idf.py build
+  ```
 
----
+- **5. 烧录 & 监视串口（Windows 示例）**
 
-## 5. 在 app_main 中使用示例
+  ```bash
+  idf.py -p COMx flash monitor
+  ```
 
-典型使用流程如下（示意代码，仅展示核心调用）：
+  将 `COMx` 替换为实际串口号，如 `COM3`。
 
-```c
-void app_main(void)
-{
-    // 初始化 NVS / 日志等
-    nvs_flash_init();
+## WiFi 配网说明
 
-    // 使用默认配置，并按需覆盖部分字段
-    wifi_manage_config_t cfg = WIFI_MANAGE_DEFAULT_CONFIG();
+1. 首次上电或未能连接已保存路由时：
+   - 设备自动启动 AP + Web 配网；
+   - 默认 AP 信息见 `xn_wifi_manage.h` 中 `WIFI_MANAGE_DEFAULT_CONFIG`：
+     - SSID：`XN-ESP32-AP`
+     - 密码：`12345678`
+     - AP IP：`192.168.4.1`
 
-    // 可选：修改 AP SSID/密码/IP/Web 端口 等
-    // strcpy(cfg.ap_ssid, "My-ESP32-AP");
-    // strcpy(cfg.ap_password, "12345678");
-    // strcpy(cfg.ap_ip, "192.168.4.1");
-    // cfg.web_port = 80;
-
-    // 可选：设置 WiFi 状态回调，用于上层 UI 或日志
-    // cfg.wifi_event_cb = my_wifi_event_cb;
-
-    // 初始化管理模块（内部会初始化 WiFi / 存储 / Web 等子模块）
-    esp_err_t ret = wifi_manage_init(&cfg);
-    if (ret != ESP_OK) {
-        // 处理错误
-    }
-}
-```
-
-上电后管理模块会：
-
-- 初始化 WiFi / 存储 / Web 配网子模块；
-- 启动 STA + AP 模式；
-- 启动 HTTP 服务器监听 `cfg.web_port`（默认 80）。
-
----
-
-## 6. Web 配网使用说明
-
-1. **连接 ESP32 的 AP**
-
-   - 默认 AP SSID：`XN-ESP32-AP`
-   - 默认密码：`12345678`
-   - AP IP：`192.168.4.1`（可通过 `wifi_manage_config_t.ap_ip` 修改）。
-
-2. **浏览器访问**
-
-   在手机或电脑浏览器中输入：
+2. 使用手机 / PC 连接到该 AP，浏览器访问：
 
    ```text
-   http://192.168.4.1/
+   http://192.168.4.1
    ```
 
-3. **网页功能**
+3. 按网页提示输入家中路由器的 SSID / 密码并保存。
 
-   - 查看当前 WiFi 连接状态（已连接 / 未连接 / 连接失败等）。
-   - 点击“开始扫描”扫描附近 2.4G WiFi，并以表格形式展示 SSID 与 RSSI。
-   - 点击某一条扫描结果可快速填充 SSID，手动输入密码后提交表单进行连接。
-   - 管理已保存 WiFi：查看列表、选择连接、删除已保存的条目。
+4. 设备重启或自动重连成功后，会通过 `app_wifi_event_cb` 回调触发 `coze_chat_app_init()`，开始连接 Coze 服务。
 
-> 提示：部分安卓手机在检测到当前 WiFi 无互联网时，会自动切到移动数据。
-> 如访问 `http://192.168.4.1/` 打不开页面，可暂时关闭移动数据，
-> 或在系统弹出的“此网络无互联网访问”提示中选择“仍然使用此网络”。
+## Coze 配置
 
----
+`main/coze_chat_app/coze_chat_app.c` 中提供了以下配置项（可被 sdkconfig / menuconfig 覆盖）：
 
-## 7. 组件内部模块概览
+- `CONFIG_COZE_BOT_ID`
+- `CONFIG_COZE_ACCESS_TOKEN`
 
-### 7.1 WiFi 管理模块（xn_wifi_manage）
+使用步骤建议：
 
-- 对外配置结构：`wifi_manage_config_t`（见 `xn_wifi_manage.h`）。
-- 重要字段：
-  - `ap_ssid` / `ap_password` / `ap_ip`：配网 AP 的 SSID、密码与 IP；
-  - `web_port`：Web 配网页面 HTTP 端口；
-  - `save_wifi_count`：最多保存的 WiFi 条数；
-  - `max_retry_count`：单个 AP 连续重试次数；
-  - `reconnect_interval_ms`：整轮失败后多久再自动重试；
-  - `wifi_event_cb`：状态变化回调。
+1. 在 Coze 平台创建 / 选择你的 Bot，确认其支持实时语音。
+2. 复制 Bot ID 与访问 Token。
+3. 在本工程中配置：
+   - 方法一：在 `menuconfig` 中增加 / 修改同名配置项；
+   - 方法二：直接修改 `coze_chat_app.c` 顶部的宏定义（不推荐将真实 Token 提交到公开仓库）。
 
-内部通过一个周期性运行的任务驱动状态机，周期由
-`WIFI_MANAGE_STEP_INTERVAL_MS`（默认 1000ms）控制。
+> 实际使用时，请务必将自己的 Access Token 保存在私密环境变量或本地配置中，不要提交到 GitHub 等公共仓库。
 
-### 7.2 底层 WiFi 模块（wifi_module）
+## 运行时行为简述
 
-- 主要接口（见 `wifi_module.h`）：
-  - `wifi_module_init`：根据配置初始化 ESP32 WiFi（STA/AP/混合模式）。
-  - `wifi_module_connect`：连接指定 SSID + 密码。
-  - `wifi_module_scan`：扫描附近 AP 并返回结果数组。
+- 设备连上 WiFi 后：
+  - `wifi_manage` 调用 `app_wifi_event_cb(WIFI_MANAGE_STATE_CONNECTED)`；
+  - `coze_chat_app_init()` 根据 MAC 地址生成 `user_id`，配置 Coze，并建立 WebSocket 连接。
+- 音频路径：
+  - `audio_manager` 采集麦克风 PCM，回调 `loopback_record_cb()`；
+  - 回调中调用 `coze_chat_send_audio_data()` 上传音频；
+  - VAD 结束事件触发 `coze_chat_send_audio_complete()`，一轮语音输入结束；
+  - Coze 返回 TTS 音频，由 `coze_audio_callback()` 写入播放缓冲区，扬声器播出。
 
-管理模块调用这些函数完成具体的连接与扫描动作。
+## 自定义与扩展
 
-### 7.3 Web 模块（web_module）
+- **修改音频参数 / 硬件接线**：
+  - 编辑 `audio_app/audio_config_app.c`，根据实际 Codec / 引脚调整 I2S / TDM 配置。
+- **调整 WiFi 行为**：
+  - 修改 `wifi_manage_config_t` 或 `WIFI_MANAGE_DEFAULT_CONFIG` 中的重连策略、AP 信息、Web 端口等。
+- **更改 Bot 行为**：
+  - 在 Coze 控制台中调整 Bot Prompt、工具调用、语言 / 情感参数等。
+  - 在工程中修改 `coze_chat_config_t` 相关字段（如 `voice_id`、字幕开关等）。
 
-负责：
+## 许可与声明
 
-- 挂载 SPIFFS 分区 `wifi_spiffs`；
-- 提供静态资源：`/`、`/index.html`、`/app.css`、`/app.js`；
-- 提供 JSON API：
-  - `GET  /api/wifi/status`
-  - `GET  /api/wifi/saved`
-  - `GET  /api/wifi/scan`
-  - `POST /api/wifi/connect`
-  - `POST /api/wifi/saved/delete`
-  - `POST /api/wifi/saved/connect`
-
-上层通过回调（在 `web_module_config_t` 中指定）与管理模块/存储模块解耦。
-
----
-
-## 8. 日志与调试
-
-使用串口监视：
-
-```bash
-idf.py monitor
-```
-
-主要日志 TAG：
-
-- `wifi_module`：底层 WiFi 连接、扫描结果与错误。  
-- `wifi_manage`：管理状态机状态变更（已连接 / 未连接 / 连接失败等）。  
-- `web_module`：HTTP 访问、SPIFFS 挂载/读文件失败等。
-
-与 WiFi 扫描相关的日志示例（实际内容以代码为准）：
-
-- `wifi_manage: web scan request: max_cnt=...`
-- `wifi_module: start wifi scan, max_out=...`
-- `wifi_module: wifi scan done: found N AP(s), out=N`
-- `wifi_manage: wifi scan done: count=N`
-
-当网页扫描无结果或崩溃时，可优先查看这些日志定位问题。
-
----
-
-## 9. 状态机简要说明
-
-WiFi 管理层抽象为三种状态（见 `wifi_manage_state_t`）：
-
-1. `WIFI_MANAGE_STATE_CONNECTED`：已成功连接路由器并获得 IP；
-2. `WIFI_MANAGE_STATE_DISCONNECTED`：未连接任何 WiFi；
-3. `WIFI_MANAGE_STATE_CONNECT_FAILED`：本轮所有候选 WiFi 均连接失败；
-
-状态机会根据当前状态和事件（连接成功/失败、掉线等）自动选择下一步动作，
-例如：
-
-- 从“未连接”尝试连接已保存 WiFi；
-- 单个 AP 多次失败后切换到下一条；
-- 全部失败后进入“连接失败”状态，等待 `reconnect_interval_ms` 再重新尝试。
-
-应用层可以通过 `wifi_event_cb_t` 回调获知状态变化，用于更新 UI 或执行业务逻辑。
-
----
-
-## 10. 许可说明
-
-如无特别说明，本组件可按照你项目整体的开源/闭源协议一并分发与使用.
+- 本工程主要用于学习与个人项目演示，你可以在遵守 Coze 与 ESP-IDF 相关协议的前提下自由修改和使用。
+- 若你在产品中使用本工程，建议：
+  - 自行审查内存 / 稳定性 / 安全性；
+  - 替换为自己的 Coze 凭证与业务逻辑.
