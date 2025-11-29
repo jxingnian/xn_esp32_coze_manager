@@ -1,8 +1,8 @@
 /*
  * @Author: 星年 jixingnian@gmail.com
  * @Date: 2025-11-22 13:43:50
- * @LastEditors: xingnian jixingnian@gmail.com
- * @LastEditTime: 2025-11-29 11:57:20
+ * @LastEditors: xingnian j_xingnian@163.com
+ * @LastEditTime: 2025-11-29 14:35:57
  * @FilePath: \xn_esp32_coze_manager\main\main.c
  * @Description: esp32 网页WiFi配网 By.星年
  */
@@ -110,10 +110,9 @@ static void audio_event_cb(const audio_mgr_event_t *event, void *user_ctx)
  */
 void app_main(void)
 {
-    // WiFi配网功能（已注释）
-    // printf("esp32 网页WiFi配网 By.星年\n");
-    // esp_err_t ret = wifi_manage_init(NULL);
-    // (void)ret; 
+    printf("esp32 网页WiFi配网 By.星年\n");
+    esp_err_t ret = wifi_manage_init(NULL);
+    (void)ret; 
     
     // 构建音频管理器配置
     audio_mgr_config_t audio_cfg = {0};
