@@ -1,9 +1,9 @@
 /*
  * @Author: xingnian j_xingnian@163.com
  * @Date: 2025-10-12 16:30:00
- * @LastEditors: xingnian j_xingnian@163.com
- * @LastEditTime: 2025-10-26 17:32:28
- * @FilePath: \esp-chunfeng\main\coze_chat\coze_chat_app.c
+ * @LastEditors: xingnian jixingnian@gmail.com
+ * @LastEditTime: 2025-11-29 10:28:19
+ * @FilePath: \xn_esp32_coze_manager\main\coze_chat_app\coze_chat_app.c
  * @Description: Coze聊天应用程序实现文件（基于espressif/esp_coze组件）
  *
  */
@@ -19,8 +19,8 @@
 #include "esp_timer.h"
 
 #include "coze_chat.h"
-#include "audio_manager.h"
-#include "lottie_manager.h"
+// #include "audio_manager.h"
+// #include "lottie_manager.h"
 
 static const char *TAG = "COZE_CHAT_APP";
 
@@ -133,28 +133,28 @@ static void coze_audio_callback(char *data, int len, void *ctx)
         return;
     }
 
-    // 组件已解码为PCM，len是字节数，样本数 = len / sizeof(int16_t) = len / 2
-    size_t samples = len / sizeof(int16_t);
+    // // 组件已解码为PCM，len是字节数，样本数 = len / sizeof(int16_t) = len / 2
+    // size_t samples = len / sizeof(int16_t);
 
-    // ✅ 流控机制：检查播放缓冲区可用空间，避免溢出
-    size_t free_space = audio_manager_get_playback_free_space();
+    // // ✅ 流控机制：检查播放缓冲区可用空间，避免溢出
+    // size_t free_space = audio_manager_get_playback_free_space();
     
-    // 如果剩余空间不足，延迟发送（自适应）
-    // 阈值：保留至少 32K样本（2秒）的缓冲空间
-    const size_t MIN_FREE_SPACE = 32 * 1024;  // 32K样本 = 2秒 @ 16kHz
+    // // 如果剩余空间不足，延迟发送（自适应）
+    // // 阈值：保留至少 32K样本（2秒）的缓冲空间
+    // const size_t MIN_FREE_SPACE = 32 * 1024;  // 32K样本 = 2秒 @ 16kHz
     
-    if (free_space < MIN_FREE_SPACE) {
-        // 计算需要延迟的时间：让播放器消耗一些数据
-        // 延迟时间 = 当前包大小的播放时长
-        uint32_t delay_ms = (samples * 1000) / 16000;  // 样本数 → 毫秒
+    // if (free_space < MIN_FREE_SPACE) {
+    //     // 计算需要延迟的时间：让播放器消耗一些数据
+    //     // 延迟时间 = 当前包大小的播放时长
+    //     uint32_t delay_ms = (samples * 1000) / 16000;  // 样本数 → 毫秒
         
-        ESP_LOGD(TAG, "🔒 播放缓冲区空间不足(%zu样本)，延迟%ums", 
-                 free_space, delay_ms);
+    //     ESP_LOGD(TAG, "🔒 播放缓冲区空间不足(%zu样本)，延迟%ums", 
+    //              free_space, delay_ms);
         
-        vTaskDelay(pdMS_TO_TICKS(delay_ms));
-    }
+    //     vTaskDelay(pdMS_TO_TICKS(delay_ms));
+    // }
 
-    audio_manager_play_audio((int16_t *)data, samples);
+    // audio_manager_play_audio((int16_t *)data, samples);
 }
 
 /**
